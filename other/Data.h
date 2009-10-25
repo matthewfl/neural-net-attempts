@@ -6,6 +6,7 @@
 struct Neuron {
   std::vector<double> values, inputs;
   double error;
+  double target;
 };
 
 struct Layer {

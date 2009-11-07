@@ -77,6 +77,7 @@ void Net::run(double * input) {
 void Net::teach (double * in, double * target) {
   run(in);
   Layer * working = layers + size-1;
+  
   double tempError;
   // compute the error for the output layer
   for(unsigned char node = 0; node < working->size; ++node) {
@@ -84,8 +85,22 @@ void Net::teach (double * in, double * target) {
     tempError = target[node] - getValue(working->nodes + node);
     working->nodes[node].error = pow(tempError,3);
   }
-  while(--working != layers-1) {
+  Layer * endL = working;
+  working = layers;
+  while(working != endL) { // each layer
+    targetValues();
     
+    for(unsigned char on=0; on < working->size; ++on) { // each node
+      Neuron * node = working->nodes+on;
+      double value = getValue(node);
+      for(unsigned char connect=0; connect < node->values.size(); ++connect) { // for each connection
+	node->values[connect] += beta*(node->values[connect] - (working+1)->nodes[connect].target / value);
+	//std::cout << "\t\t" << node->values[connect] << " + beta*(" <<  node->values[connect] << " - " << (working+1)->nodes[connect].target << " / " << value << "\n";
+      }
+      
+    }
+
+    ++working;
   }
   
 }
@@ -93,6 +108,7 @@ void Net::teach (double * in, double * target) {
 
 void Net::targetValues() {
   // compute all of the target values
+  // only compute all of the target values
   Layer * working = layers+size-2;
   while(working != layers-1) { // for each layer
     Layer * from = working+1;
@@ -100,8 +116,11 @@ void Net::targetValues() {
     for(unsigned char _node=0;_node < working->size; ++_node) { // for each node per layer
       Neuron * node = working->nodes + _node;
       for(unsigned char val=0;val < node->values.size();++val) { // for each value in a node
-	
+	// correction: from->nodes[val].inputs[_node] - fron->nodes[val].target;
+	node->target += from->nodes[val].target / node->values[val];
+	std::cout << "target: " << node->target << "\n";
       }
+      node->target /= node->values.size();
     }
 
     --working;

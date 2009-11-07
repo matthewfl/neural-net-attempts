@@ -17,11 +17,11 @@ class Net {
  private: ////
   unsigned int size;
   Layer * layers;
+  void zero ();
  public: ////
   Net (Net *);
   Net (std::vector<unsigned char>);
-  std::vector<unsigned char> size ();
-
+  std::vector<unsigned char> Size ();
 };
 
 

@@ -32,10 +32,21 @@ Net::Net (vector<unsigned char> ss) {
   }
 }
 
-vector<unsigned char> Net::size () {
+vector<unsigned char> Net::Size () {
   vector<unsigned char> ret;
   for(unsigned int working = 0; working < size; ++working) {
     ret.push_back(layers[working].size);
   }
   return ret;
 }
+
+void Net::zero () {
+  /// zero out all of the values before running
+  for(unsigned int working = 0; working < size; ++working) {
+    for(unsigned char node = 0; node < layers[working].size; ++node) {
+      layers[working].nodes[node].value = 0;
+    }
+  }
+}
+
+

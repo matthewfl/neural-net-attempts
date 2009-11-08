@@ -7,6 +7,7 @@ class Net {
  public:
   struct Neuron {
     double value;
+    double bias;
     std::vector<double> weight;
   };
   struct Layer {
@@ -30,6 +31,7 @@ class Net {
   void zero ();
   void swap(Net*);
  public: ////
+  bool operator == (Net&);
   Net& operator = (Net&);
   ~Net ();
   Net (Net *);
@@ -40,6 +42,9 @@ class Net {
   double check (Teaching*);
   double check(Teaching*, unsigned int);
   void build(std::vector<Grade>);
+  void teach (Teaching*, unsigned int, float);
+  void backpropagation (Teaching*);
+  void nodeFix ();
 };
 
 

@@ -5,6 +5,7 @@
 #include <math.h>
 
 #include <iostream>
+#include <iomanip>
 
 using namespace std;
 
@@ -182,9 +183,11 @@ void Net::teach(Net::Teaching * teach, unsigned int ss, float maxError) {
       new Net(Size()),
 	1,0
 	});
-  double worth=0;
+  double worth=0, oldWorth=0, lowWorth=0;
+  unsigned char sameCount=0;
   Net * n;
   do {
+    lowWorth=worth-.00000000000001;
     //cout << "loop\n";
     /*
     n = new Net(Size());
@@ -198,7 +201,7 @@ void Net::teach(Net::Teaching * teach, unsigned int ss, float maxError) {
 	new Net(Size()),
 	  0,0
 	  });
-    for(unsigned int working= nets.size() > 100?nets.size()/4:5; working >0 && nets.size() > 15 || nets.size() > 1000; --working) {
+    for(int working= nets.size() > 100?nets.size()/2:5; (working >0 && nets.size() > 15) || (nets.size() > 1000 && working > -10000); --working) {
       unsigned int randA = rand()%nets.size();
       unsigned int randB = rand()%nets.size();
       if(*nets[randA].net == *nets[randB].net) {
@@ -220,14 +223,8 @@ void Net::teach(Net::Teaching * teach, unsigned int ss, float maxError) {
       if(nets[working].grade > worth) {
 	swap(&Net(nets[working].net));
 	worth = nets[working].grade;
-	if(nets[working].grade >= .3/maxError) {
-	  Net * other = new Net(n);
-	  other->nodeFix();
-	  nets.push_back((Grade){
-	      other, worth, 0
-		});
-	}
-      }else if(nets[working].grade < worth*.9) {
+      }else if(nets[working].grade < worth*.9 || lowWorth > worth) {
+	lowWorth = worth;
 	delete nets[working].net;
 	nets.erase(nets.begin() + working);
 	--working;
@@ -239,8 +236,23 @@ void Net::teach(Net::Teaching * teach, unsigned int ss, float maxError) {
       n->nodeFix();
       nets.push_back((Grade){n,0,0});
     }
-    cout << nets.size() << " " << worth << endl;
+    cout << nets.size() << "\t" << fixed <<  setprecision(45) <<  worth << "\t\t" << worth - lowWorth <<  endl;
+    if(sameCount > 10)
+      enumerate(nets);
     if(worth > maxError) break;
+    if(worth == oldWorth) {
+      ++sameCount;
+      if(sameCount > 50) {
+	cout << "clean\n";
+	emptyGrade(nets);
+	cout << "enumerate\n";
+	enumerate(nets);
+	sameCount=0;
+      }
+    }else{
+      oldWorth = worth;
+      sameCount=0;
+    }
   } while(true);
 
   for(unsigned int working=0; working < nets.size(); ++working)
@@ -258,5 +270,47 @@ void Net::nodeFix () {
   Neuron * node = layers[ll].nodes + rand()%layers[ll].size;
   for(unsigned char weight=0; weight < node->weight.size(); ++weight) {
     node->weight[weight] = ((double)rand()*2)/RAND_MAX-1;
+  }
+}
+
+void Net::emptyGrade(vector<Net::Grade> & nets) {
+  for(unsigned int working=0; working < nets.size(); ++working) {
+    delete nets[working].net;
+  }
+  nets.erase(nets.begin(), nets.end()); // delete all
+}
+
+double simpleRand () { // return a rand number between 0 and 1
+  return ((double)rand())/RAND_MAX;
+}
+
+void Net::enumerate(vector<Net::Grade> & nets) {
+  nets.push_back((Grade){
+      new Net(this),0,0
+    });
+  Net * n;
+  for(unsigned int working=0; working < size; ++working) { // layer
+    for(unsigned char node=0; node < layers[working].size; ++node) { // node
+      // first work on the bias
+      // try each possible with a random number + and -
+      n = new Net(this);
+      n->layers[working].nodes[node].bias += simpleRand()*.5;
+      nets.push_back((Grade){n,0,0});
+      n = new Net(this);
+      n->layers[working].nodes[node].bias -= simpleRand()*.5;
+      nets.push_back((Grade){n,0,0});
+      // work on the weights for each node
+      for(unsigned char weight=0; weight < layers[working].nodes[node].weight.size(); ++weight) {
+	n = new Net(this);
+	n->layers[working].nodes[node].weight[weight] += simpleRand()*.5;
+	nets.push_back((Grade){n,0,0});
+	n = new Net(this);
+	n->layers[working].nodes[node].weight[weight] -= simpleRand()*.5;
+	nets.push_back((Grade){n,0,0});
+	n = new Net(this);
+	n->layers[working].nodes[node].weight[weight] = simpleRand()*2-1;
+	nets.push_back((Grade){n,0,0});
+      }
+    }
   }
 }

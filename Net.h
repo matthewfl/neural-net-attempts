@@ -30,6 +30,10 @@ class Net {
   Layer * layers;
   void zero ();
   void swap(Net*);
+  void nodeFix();
+  void backpropagation (Teaching*);
+  void enumerate(std::vector<Grade>&); 
+  void emptyGrade(std::vector<Grade>&);
  public: ////
   bool operator == (Net&);
   Net& operator = (Net&);
@@ -43,8 +47,7 @@ class Net {
   double check(Teaching*, unsigned int);
   void build(std::vector<Grade>);
   void teach (Teaching*, unsigned int, float);
-  void backpropagation (Teaching*);
-  void nodeFix ();
+  
 };
 
 

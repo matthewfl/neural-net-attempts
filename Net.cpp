@@ -48,12 +48,9 @@ void Net::swap (Net * other) {
   other->layers = lTemp;
 }
 
-Net & Net::operator= (Net & o) {
-  cout << "copy\n";
+Net & Net::operator= (Net & o) { // this sometimes has problems
   Net nn(o);
-  cout << "swap\n";
   swap(&nn);
-  cout << "return\n";
   return *this;
 }
 
@@ -223,7 +220,7 @@ void Net::teach(Net::Teaching * teach, unsigned int ss, float maxError) {
       if(nets[working].grade > worth) {
 	swap(&Net(nets[working].net));
 	worth = nets[working].grade;
-      }else if(nets[working].grade < worth*.9 || lowWorth > worth) {
+      }else if(nets[working].grade < worth*.95 || lowWorth > worth) {
 	lowWorth = worth;
 	delete nets[working].net;
 	nets.erase(nets.begin() + working);
@@ -280,7 +277,7 @@ void Net::emptyGrade(vector<Net::Grade> & nets) {
   nets.erase(nets.begin(), nets.end()); // delete all
 }
 
-double simpleRand () { // return a rand number between 0 and 1
+inline double simpleRand () { // return a rand number between 0 and 1
   return ((double)rand())/RAND_MAX;
 }
 
@@ -294,18 +291,18 @@ void Net::enumerate(vector<Net::Grade> & nets) {
       // first work on the bias
       // try each possible with a random number + and -
       n = new Net(this);
-      n->layers[working].nodes[node].bias += simpleRand()*.5;
+      n->layers[working].nodes[node].bias += simpleRand()*2;
       nets.push_back((Grade){n,0,0});
       n = new Net(this);
-      n->layers[working].nodes[node].bias -= simpleRand()*.5;
+      n->layers[working].nodes[node].bias -= simpleRand()*2;
       nets.push_back((Grade){n,0,0});
       // work on the weights for each node
       for(unsigned char weight=0; weight < layers[working].nodes[node].weight.size(); ++weight) {
 	n = new Net(this);
-	n->layers[working].nodes[node].weight[weight] += simpleRand()*.5;
+	n->layers[working].nodes[node].weight[weight] += simpleRand()*2;
 	nets.push_back((Grade){n,0,0});
 	n = new Net(this);
-	n->layers[working].nodes[node].weight[weight] -= simpleRand()*.5;
+	n->layers[working].nodes[node].weight[weight] -= simpleRand()*2;
 	nets.push_back((Grade){n,0,0});
 	n = new Net(this);
 	n->layers[working].nodes[node].weight[weight] = simpleRand()*2-1;

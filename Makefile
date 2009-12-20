@@ -1,4 +1,4 @@
-CXXFLAGS =	-O2 -ggdb -Wall -fmessage-length=0
+CXXFLAGS =	-O0 -ggdb -Wall -fmessage-length=0
 
 OBJS =		main.o Net.o
 

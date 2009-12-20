@@ -7,10 +7,13 @@
 #include <iostream>
 #include <iomanip>
 
+#include <assert.h>
+
 using namespace std;
 
 Net::Net (Net * from) { // make a copy of the Neural Net
   size = from->size;
+  beta = from->beta;
   layers = new Layer[size];
   for(unsigned int working = 0; working < size; ++working) {
     layers[working].size = from->layers[working].size;
@@ -24,13 +27,14 @@ Net::Net (Net * from) { // make a copy of the Neural Net
 
 Net::Net (vector<unsigned char> ss) {
   size = ss.size();
+  beta = .5;
   layers = new Layer[size];
   for(unsigned int working = 0; working < size; ++working) {
     layers[working].size = ss[working];
     layers[working].nodes = new Neuron[layers[working].size];
     if(working < size-1)
       for(unsigned char node = 0; node < layers[working].size; ++node) {
-	layers[working].nodes[node].bias =  ((double)rand()*2)/RAND_MAX -1;
+	layers[working].nodes[node].bias =  ((double)rand())/RAND_MAX -.5;
 	for(unsigned char weight = 0; weight < ss[working+1]; ++weight) {
 	  layers[working].nodes[node].weight.push_back( ((double)rand()*2)/RAND_MAX -1 );
 	}
@@ -42,10 +46,14 @@ Net::Net (vector<unsigned char> ss) {
 void Net::swap (Net * other) {
   unsigned int temp = size;
   Layer * lTemp = layers;
+  double tempBeta = beta;
   size = other->size;
   layers = other->layers;
+  beta = other->beta;
   other->size = temp;
   other->layers = lTemp;
+  other->beta = tempBeta;
+  
 }
 
 Net & Net::operator= (Net & o) { // this sometimes has problems
@@ -90,6 +98,7 @@ void Net::zero () {
   for(unsigned int working = 0; working < size; ++working) {
     for(unsigned char node = 0; node < layers[working].size; ++node) {
       layers[working].nodes[node].value = layers[working].nodes[node].bias;
+      layers[working].nodes[node].error = 0;
     }
   }
 }
@@ -103,18 +112,34 @@ void Net::run (double * input) {
   }
   
   // compute the data
+  //cout << "values:\n";
   for(unsigned int working=0; working < size-1; ++working) { // layer
     for(unsigned char node =0; node < layers[working].size; ++node) { // node
+      //cout << layers[working].nodes[node].value << "\t";
+      layers[working].nodes[node].SigValue = Sigmoid(layers[working].nodes[node].value);
       for(unsigned char weight=0;weight < layers[working].nodes[node].weight.size(); ++weight) { // weight
-	layers[working+1].nodes[weight].value += layers[working].nodes[node].value * layers[working].nodes[node].weight[weight];
+	//	cout << "weight " << layers[working].nodes[node].weight[weight] << endl;
+	layers[working+1].nodes[weight].value += layers[working].nodes[node].SigValue * tanh(layers[working].nodes[node].weight[weight]);
       }
     }
+    //cout << endl;
   }
+}
+
+double Net::Sigmoid(double v) {
+  //cout << "\t\t\t\t\t" << v << endl;
+  return 1/(1+exp(v));
+  //return tanh(v);
+}
+
+double Net::DSigmoid (double v) {
+  return Sigmoid(v) * (1-Sigmoid(v));
+  //return 1 - (tanh(v) * tanh(v));
 }
 
 double Net::get(unsigned char node) {
   if(layers[size-1].size > node)
-    return layers[size-1].nodes[node].value;
+    return Sigmoid(layers[size-1].nodes[node].value);
   return -100; // bad
 }
 
@@ -233,11 +258,19 @@ void Net::teach(Net::Teaching * teach, unsigned int ss, float maxError) {
       n->nodeFix();
       nets.push_back((Grade){n,0,0});
     }
-    cout << nets.size() << "\t" << fixed <<  setprecision(45) <<  worth << "\t\t" << worth - lowWorth <<  endl;
+    n = new Net(this);
+    n->backprop(teach, ss); /////////////////// fix this
+    nets.push_back((Grade){n,0,0});
+
+    cout << nets.size() << "\t" << fixed <<  setprecision(45) <<  worth << "\t\t" << 1/worth << endl;
     if(sameCount > 10)
       enumerate(nets);
     if(worth > maxError) break;
-    if(worth == oldWorth) {
+    if(nets.size() > 750)
+      emptyGrade(nets);
+    enumerate(nets);
+    /*
+    if(worth == oldWorth || nets.size() > 200) {
       ++sameCount;
       if(sameCount > 50) {
 	cout << "clean\n";
@@ -250,15 +283,56 @@ void Net::teach(Net::Teaching * teach, unsigned int ss, float maxError) {
       oldWorth = worth;
       sameCount=0;
     }
+    */
   } while(true);
 
   for(unsigned int working=0; working < nets.size(); ++working)
     delete nets[working].net;
 }
 
-void Net::backpropagation (Net::Teaching * data) {
+double Net::backpropagation (Net::Teaching * data) {
   run(data->input);
-  
+  Layer * working=layers+size-1;
+  Layer * endL = working;
+  for(unsigned char results=0; results < data->resultSize; ++results) {
+    working->nodes[results].error = (data->result[results] - get(results));
+    cout << data->result[results] << "  \t" << get(results) << endl;
+  }
+  while(working-- != layers) { // each layer back
+    for(unsigned char nodeN=0; nodeN < working->size; ++nodeN) { // each Neuron
+      Neuron * node = working->nodes + nodeN;
+      for(unsigned char con=0; con < node->weight.size(); ++con) { // each connction
+	node->error += node->weight[con]*(working+1)->nodes[con].error;
+      }
+    }
+  }
+
+  double totalError=0;
+  for(unsigned char nodeN=0; nodeN < endL->size; ++nodeN) {
+    totalError += .5 * pow(endL->nodes[nodeN].error,2);
+  }
+
+  working = layers-1;
+  while(++working != endL) { // should not do the last layer
+    for(unsigned char nodeN=0; nodeN < working->size; ++nodeN) { // each Neuron with change
+      Neuron * node = working->nodes + nodeN;
+      node->bias += beta * DSigmoid(node->value) * node->error * totalError;
+      for(unsigned char con=0; con < node->weight.size(); ++con) { // each connection from node
+	Neuron * nodeTo = (working+1)->nodes + con;
+	node->weight[con] += beta * DSigmoid(nodeTo->value) * nodeTo->value * nodeTo->error * totalError; 
+      }
+    }
+  }
+ 
+  return totalError;
+}
+
+double Net::backprop(Net::Teaching * data, unsigned int ss) {
+  double error=0;
+  for(unsigned int s=0;s<ss;++s)
+    error += backpropagation(data + s);
+  cout << fixed << setprecision(45) << "error \t\t\t\t\t\t\t\t\t\t\t\t\t"<< error << endl;
+  return error;
 }
 
 void Net::nodeFix () {

@@ -294,17 +294,11 @@ double Net::backpropagation (Net::Teaching * data) {
   run(data->input);
   Layer * working=layers+size-1;
   Layer * endL = working;
+  //double totalError = 0;
   for(unsigned char results=0; results < data->resultSize; ++results) {
-    working->nodes[results].error = (data->result[results] - get(results));
+    working->nodes[results].SimpleError = (data->result[results] - get(results)) * DSigmoid(layers[size-1].nodes[results].value);
+    working->nodes[results].error = DSigmoid(working->nodes[results].SimpleError);
     cout << data->result[results] << "  \t" << get(results) << endl;
-  }
-  while(working-- != layers) { // each layer back
-    for(unsigned char nodeN=0; nodeN < working->size; ++nodeN) { // each Neuron
-      Neuron * node = working->nodes + nodeN;
-      for(unsigned char con=0; con < node->weight.size(); ++con) { // each connction
-	node->error += node->weight[con]*(working+1)->nodes[con].error;
-      }
-    }
   }
 
   double totalError=0;
@@ -312,14 +306,33 @@ double Net::backpropagation (Net::Teaching * data) {
     totalError += .5 * pow(endL->nodes[nodeN].error,2);
   }
 
+  while(working-- != layers) { // each layer back
+    for(unsigned char nodeN=0; nodeN < working->size; ++nodeN) { // each Neuron
+      Neuron * node = working->nodes + nodeN;
+      node->error=node->SimpleError=0;
+      for(unsigned char con=0; con < node->weight.size(); ++con) { // each connction
+	node->SimpleError += node->weight[con]*(working+1)->nodes[con].SimpleError;
+      }
+      node->error = DSigmoid(node->SimpleError) * node->SigValue * totalError;
+      //totalError += pow(node->error,2);
+    }
+  }
+
   working = layers-1;
   while(++working != endL) { // should not do the last layer
     for(unsigned char nodeN=0; nodeN < working->size; ++nodeN) { // each Neuron with change
       Neuron * node = working->nodes + nodeN;
-      node->bias += beta * DSigmoid(node->value) * node->error * totalError;
+      node->bias += beta * node->error;
       for(unsigned char con=0; con < node->weight.size(); ++con) { // each connection from node
 	Neuron * nodeTo = (working+1)->nodes + con;
-	node->weight[con] += beta * DSigmoid(nodeTo->value) * nodeTo->value * nodeTo->error * totalError; 
+	double delta = // only changes the weight 
+	  beta * // learning rate
+	  //DSigmoid(nodeTo->value) * // not needed as added into the error
+	  //nodeTo->value * 
+	  nodeTo->error * // error of neuron that signal going to
+	  node->SigValue; // *
+	  //totalError; 
+	node->weight[con] += delta;
       }
     }
   }
@@ -334,6 +347,41 @@ double Net::backprop(Net::Teaching * data, unsigned int ss) {
   cout << fixed << setprecision(45) << "error \t\t\t\t\t\t\t\t\t\t\t\t\t"<< error << endl;
   return error;
 }
+
+
+// stackoverflow answer?
+// forget this
+
+double Net::backpropagationSO (Teaching * data) {
+  run(data->input);
+  Layer * working = layers+size-1;
+  Layer * endL = working;
+  // output layer error
+  double totalError=0;
+  for(unsigned char results=0; results < data->resultSize; ++results) {
+    working->nodes[results].error = 
+      (data->result[results] - get(results)) * // diff between expected
+      get(results)*(1-get(results)); // derivative of sigmoid
+    totalError += working->nodes[results].error; // record layer error
+  }
+  // back prop the error from the output layer
+  while(working -- != layers) { // all but the output layer
+    for(unsigned char nodeN=0; nodeN < working->size; ++nodeN) { // each neuron in a layer
+      Neuron * node = working->nodes + nodeN;
+      node->error=node->SimpleError=0;
+      for(unsigned char con=0; con < node->weight.size(); ++con) { // each connection
+	// compute part of the error for the neuron *node
+	
+      }
+      node->error = 
+	DSigmoid(node->value) *
+	totalError * 
+	node->SimpleError;
+    }
+  }
+  return totalError;
+}
+
 
 void Net::nodeFix () {
   //chose a random node

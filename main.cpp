@@ -42,7 +42,9 @@ int main (int argc, char **argv) {
   //net.teach(teach, 8, 20);
   //for(unsigned char i=0; i<30; ++i)
     
-  while (1 < net.backprop(teach,8));
+  //while (.2 < net.backprop(teach,8));
+  while(true) 
+    cout << net.backprop(teach,8) << endl;
 
   cout << "test\n";
   

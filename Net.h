@@ -11,9 +11,11 @@ class Net {
     double bias;
     std::vector<double> weight;
     double error;
+    double SimpleError;
   };
   struct Layer {
     Neuron * nodes;
+    double error;
     unsigned char size;
   };
   struct Grade {
@@ -35,6 +37,7 @@ class Net {
   void swap(Net*);
   void nodeFix();
   double backpropagation (Teaching*);
+  double backpropagationSO (Teaching*);
   void enumerate(std::vector<Grade>&); 
   void emptyGrade(std::vector<Grade>&);
   double Sigmoid(double);
